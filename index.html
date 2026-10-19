@@ -25,6 +25,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--cy);outlin
 button.p{background:var(--cy);color:#041018;border:0;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer}
 button.s{background:none;border:1px solid var(--ln);color:var(--tx);padding:5px 10px;font:inherit;font-size:13px;cursor:pointer}
 button.s.d{color:var(--rd)}
+a.s{border:1px solid var(--ln);color:var(--tx);padding:5px 10px;font-size:13px;text-decoration:none;display:inline-block}
+a.s.wa{background:#25d366;border-color:#25d366;color:#041018;font-weight:600}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--ln);flex-wrap:wrap}
 .row:first-of-type{border-top:0}.mu{color:var(--mu);font-size:13px}.big{font-size:26px;font-weight:600}
 .neg{color:var(--rd)}.pos{color:var(--gn)}.k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
@@ -63,12 +65,12 @@ const monthKey=(d=0)=>{const t=new Date();t.setMonth(t.getMonth()+d);return t.to
 const endDate=c=>{const d=new Date(c.start);d.setMonth(d.getMonth()+ +c.plan);return d};
 const daysLeft=c=>Math.ceil((endDate(c)-new Date())/864e5);
 
-const TABS={admin:[['week','الجدول'],['dash','الملخص'],['staff','الموظفين'],['subs','الاشتراكات'],['fin','الفواتير والمصاريف'],['log','كل الحركات']],employee:[['week','جدولي'],['new','تسجيل'],['mine','سجلي']]};
+const TABS={admin:[['week','الجدول'],['dash','الملخص'],['staff','الموظفين'],['subs','الاشتراكات'],['clients','الزباين'],['fin','الفواتير والمصاريف'],['log','كل الحركات']],employee:[['week','جدولي'],['new','تسجيل'],['mine','سجلي']]};
 const opn=(p,e)=>sum(p,'amount',x=>x.empId==e&&x.status=='open'),owe=(x,e)=>sum(x,'amount',y=>y.empId==e&&y.status=='pending');
 const netTxt=n=>n>0?`عليه يسلّم <b>${money(n)}</b>`:n<0?`له <b class="neg">${money(-n)}</b> مصاريف ترجعله`:'مسوّى';
 const load=(...w)=>Promise.all(['cm_invoices','cm_payments','cm_expenses'].map(c=>list(c,...w)));
 const inM=(a,k,p)=>sum(a,k,x=>x.date.startsWith(p));
-const entryRows=(inv,pay,ex,adm)=>[...inv.map(x=>({c:'invoices',id:x.id,d:x.date,t:'فاتورة · '+x.clientName,s:[x.service,x.phone].filter(Boolean).join(' · '),a:x.price,e:x.empName})),...pay.map(x=>({c:'payments',id:x.id,d:x.date,t:'استلام · '+x.clientName,s:x.note||'',a:x.amount,e:x.empName})),...ex.map(x=>({c:'expenses',id:x.id,d:x.date,t:'مصروف · '+x.desc,s:x.status=='pending'?'بانتظار الرجوع':'',a:x.amount,e:x.empName}))].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,150).map(r=>`<div class="row"><div><b>${h(r.t)}</b><div class="mu">${r.d} · ${h(r.e)}${r.s?' · '+h(r.s):''}</div></div><div>${money(r.a)}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('${r.c}','${r.id}'))">حذف</button>`:''}</div></div>`).join('')||empty('لا توجد حركات بعد.');
+const entryRows=(inv,pay,ex,adm)=>[...inv.map(x=>({c:'invoices',id:x.id,d:x.date,t:'فاتورة · '+x.clientName,s:[x.service,x.phone].filter(Boolean).join(' · '),a:x.price,e:x.empName,w:x.phone?waLink(x):''})),...pay.map(x=>({c:'payments',id:x.id,d:x.date,t:'استلام · '+x.clientName,s:x.note||'',a:x.amount,e:x.empName})),...ex.map(x=>({c:'expenses',id:x.id,d:x.date,t:'مصروف · '+x.desc,s:x.status=='pending'?'بانتظار الرجوع':'',a:x.amount,e:x.empName}))].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,150).map(r=>`<div class="row"><div><b>${h(r.t)}</b><div class="mu">${r.d} · ${h(r.e)}${r.s?' · '+h(r.s):''}</div></div><div>${money(r.a)}${r.w?` <a class="s wa" target="_blank" rel="noopener" href="${r.w}">واتساب</a>`:''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('${r.c}','${r.id}'))">حذف</button>`:''}</div></div>`).join('')||empty('لا توجد حركات بعد.');
 
 const T={
 async week(){
@@ -108,9 +110,17 @@ async fin(){
  <div class="box br"><h3>مصروف شركة جديد</h3><div class="g">${F('c1','الوصف')}${F('c2','المبلغ','number')}${F('c3','النوع','',CATS.map(c=>[c,c]))}${F('c4','التاريخ','date')}</div><button class="p" onclick="go(addCo)">حفظ المصروف</button></div>
  <div class="box"><h3>المصاريف حسب النوع (هالشهر)</h3>${Object.entries(by).map(([c,a])=>`<div class="row"><span>${h(c)}</span><b>${money(a)}</b></div>`).join('')||empty('لا مصاريف هالشهر.')}</div>
  <div class="box"><h3>مصاريف الشركة</h3>${srt(ex).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.desc)}</b><div class="mu">${x.date} · ${h(x.cat||'أخرى')} · ${h(x.empName)}${x.status=='pending'?' · بانتظار الرجوع':''}</div></div><div>${money(x.amount)} ${dl('expenses',x.id)}</div></div>`).join('')||empty('لا مصاريف بعد.')}</div>
- <div class="box"><h3>الفواتير</h3>${srt(inv).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.clientName)}</b><div class="mu">${x.date} · ${h(x.empName)}${x.service?' · '+h(x.service):''}</div></div><div>${money(x.price)} ${dl('invoices',x.id)}</div></div>`).join('')||empty('لا فواتير بعد.')}</div>`},
+ <div class="box"><h3>الفواتير</h3>${srt(inv).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.clientName)}</b><div class="mu">${x.date} · ${h(x.empName)}${x.service?' · '+h(x.service):''}</div></div><div>${money(x.price)} ${x.phone?`<a class="s wa" target="_blank" rel="noopener" href="${waLink(x)}">واتساب</a>`:''} ${dl('invoices',x.id)}</div></div>`).join('')||empty('لا فواتير بعد.')}</div>`},
 async log(){const[i,p,x]=await load();return`<div class="box">${entryRows(i,p,x,true)}</div>`},
-async new(){return`<div class="box br"><h3>فاتورة جديدة</h3><div class="g">${F('i1','اسم العميل')}${F('i2','رقم الهاتف','tel')}${F('i3','الخدمة / الشغل اللي عملته')}${F('i4','السعر','number')}${F('i5','المبلغ اللي استلمته الآن (اختياري)','number')}</div><button class="p" onclick="go(addInv)">حفظ الفاتورة</button></div>
+async clients(){
+ const cl=(await list('cm_clients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+ return`<div class="k">${CT.map(t=>`<div class="box"><div class="mu">${t}</div><div class="big">${cl.filter(c=>c.type==t).length}</div></div>`).join('')}</div>
+ <div class="box br"><h3>زبون جديد</h3><div class="g">${F('k1','اسم الزبون')}${F('k2','رقم الواتساب (مثال 0791234567)','tel')}${F('k3','نوع الاشتراك','',CT.map(x=>[x,x]))}</div><button class="p" onclick="go(addClient)">حفظ الزبون</button></div>
+ <div class="box"><h3>قاعدة الزباين (${cl.length})</h3>${cl.map(c=>`<div class="row"><div><b>${h(c.name)}</b><div class="mu">${h(c.phone)||'بدون رقم'}</div></div><div><select onchange="go(()=>setCType('${c.id}',this.value))">${CT.map(x=>`<option${x==c.type?' selected':''}>${x}</option>`).join('')}</select> <button class="s d" onclick="confirm('حذف الزبون؟')&&go(()=>del('clients','${c.id}'))">حذف</button></div></div>`).join('')||empty('لا يوجد زباين بعد.')}</div>`},
+async new(){
+ const cl=(await list('cm_clients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));window.CL=Object.fromEntries(cl.map(c=>[c.id,c]));
+ const li=window.lastInv,sent=li?`<div class="box" style="border-color:var(--gn)"><div class="mu">تم حفظ فاتورة ${h(li.clientName)}</div>${li.phone?`<a class="s wa" target="_blank" rel="noopener" href="${waLink(li)}">إرسال الفاتورة عبر واتساب</a>`:'<div class="mu">ما في رقم هاتف للزبون.</div>'} <button class="s" onclick="window.lastInv=null;show('new')">إغلاق</button></div>`:'';
+ return sent+`<div class="box br"><h3>فاتورة جديدة</h3><div class="g"><label>الزبون<select id="i0" onchange="pickClient(this.value)"><option value="">— زبون غير مسجّل (اكتب بياناته) —</option>${cl.map(c=>`<option value="${c.id}">${h(c.name)} · ${h(c.type)}</option>`).join('')}</select></label>${F('i1','اسم العميل')}${F('i2','رقم الهاتف','tel')}${F('i3','الخدمة / الشغل اللي عملته')}${F('i4','السعر','number')}${F('i5','المبلغ اللي استلمته الآن (اختياري)','number')}</div><button class="p" onclick="go(addInv)">حفظ الفاتورة</button></div>
  <div class="box"><h3>استلمت دفعة</h3><div class="g">${F('p1','اسم العميل')}${F('p2','المبلغ','number')}${F('p3','ملاحظة (اختياري)')}</div><button class="p" onclick="go(addPay)">تسجيل الاستلام</button></div>
  <div class="box"><h3>مصروف دفعته من جيبي</h3><div class="g">${F('x1','الوصف')}${F('x2','المبلغ','number')}</div><button class="p" onclick="go(()=>addExp(false))">إرسال المصروف</button></div>`},
 async mine(){
@@ -132,6 +142,13 @@ window.pickDay=d=>{document.getElementById('t4').value=d;scrollTo({top:0,behavio
 let wk=0,fEmp='';
 const wkRange=()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-d.getDay()+wk*7);return[...Array(7)].map((_,i)=>{const x=new Date(d);x.setDate(d.getDate()+i);return x.toISOString().slice(0,10)})};
 const addSel=(t,em,all)=>{const av=em.filter(e=>!all.some(x=>x.date==t.date&&x.title==t.title&&x.clientName==t.clientName&&x.empId==e.id));return av.length?` <select onchange="this.value&&go(()=>this.value=='__all'?addToAll('${t.id}'):addTo('${t.id}',this.value,this.selectedOptions[0].text))"><option value="">+ أضف موظف</option>${av.length>1?'<option value="__all">★ الكل</option>':''}${av.map(e=>`<option value="${e.id}">${h(e.name)}</option>`).join('')}</select>`:''};
+const CT=['شهري','3 شهور','6 شهور','سنوي','نزلة وحدة'];
+const waNum=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('0'))d='962'+d.slice(1);else if(d.length==9&&d[0]=='7')d='962'+d;return d};
+const invMsg=x=>`مرحباً ${x.clientName}،\nهاي فاتورتك من Click Media:\n\nالخدمة: ${x.service||'-'}\nالسعر: ${money(x.price)}\n`+(+x.paid>0?`المدفوع: ${money(x.paid)}\nالمتبقي: ${money((+x.price)-(+x.paid))}\n`:'')+`التاريخ: ${x.date}\n\nشكراً لتعاملكم معنا 🌟`;
+const waLink=x=>`https://wa.me/${waNum(x.phone)}?text=${encodeURIComponent(invMsg(x))}`;
+window.pickClient=id=>{const c=(window.CL||{})[id];if(!c)return;document.getElementById('i1').value=c.name;document.getElementById('i2').value=c.phone||''};
+window.addClient=async()=>{if(!v('k1')||!v('k2'))throw Error('اكتب اسم الزبون ورقم الواتساب');await addDoc(collection(db,'cm_clients'),{name:v('k1'),phone:v('k2'),type:v('k3'),created:today()})};
+window.setCType=(id,t)=>updateDoc(doc(db,'cm_clients',id),{type:t});
 const grpTasks=a=>{const m=new Map();a.forEach(t=>{const k=t.grp||t.id;(m.get(k)||m.set(k,[]).get(k)).push(t)});return[...m.values()]};
 const gcard=(ms,em,all)=>{const t=ms[0],ids=ms.map(x=>x.id);return`<div class="row"><div><b>${h(t.title)}</b> · ${h(t.clientName)}<div class="mu">${h(t.time)||'بدون وقت'} · ${h(t.place)||'بدون موقع'}</div></div><div>${ms.map(m=>`<div style="margin-bottom:4px"><span class="mu">${h(m.empName)}${m.onSite?' · وصل '+h(m.onSite):''}</span> <select onchange="go(()=>setSt('${m.id}',this.value))">${ST.map(x=>`<option${x==m.status?' selected':''}>${x}</option>`).join('')}</select></div>`).join('')}${em?addSel(t,em,all):''} <button class="s d" onclick="confirm('حذف النزلة لكل الموظفين؟')&&go(async()=>{for(const i of ${JSON.stringify(ids).replace(/"/g,"'")})await del('tasks',i)})">حذف</button></div></div>`};
 const tcard=(t,adm,em,all)=>`<div class="row"><div><b>${h(t.title)}</b> · ${h(t.clientName)}<div class="mu">${h(t.time)||'بدون وقت'} · ${h(t.place)||'بدون موقع'}${adm?' · '+h(t.empName):''}${t.team&&t.team.length>1?' · مع: '+h(t.team.filter(n=>n!=t.empName).join('، ')):''}${t.onSite?' · وصل '+h(t.onSite):''}</div></div><div><select onchange="go(()=>setSt('${t.id}',this.value))">${ST.map(s=>`<option${s==t.status?' selected':''}>${s}</option>`).join('')}</select>${!adm&&!t.onSite?` <button class="s" onclick="go(()=>onSite('${t.id}'))">أنا بالموقع</button>`:''}${adm&&em?addSel(t,em,all):''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('tasks','${t.id}'))">حذف</button>`:''}</div></div>`;
@@ -157,7 +174,7 @@ window.setSt=(id,s)=>updateDoc(doc(db,'cm_tasks',id),{status:s});
 window.onSite=id=>updateDoc(doc(db,'cm_tasks',id),{onSite:new Date().toLocaleTimeString('ar-JO',{hour:'2-digit',minute:'2-digit'})});
 const base=()=>({empId:me.uid,empName:me.name,date:today()});
 window.addInv=async()=>{const price=+v('i4'),rec=+v('i5')||0;if(!v('i1')||!(price>0))throw Error('اكتب اسم العميل والسعر');
- await addDoc(collection(db,'cm_invoices'),{...base(),clientName:v('i1'),phone:v('i2'),service:v('i3'),price});
+ const inv={...base(),clientName:v('i1'),phone:v('i2'),service:v('i3'),price,paid:rec,clientId:v('i0')||''};await addDoc(collection(db,'cm_invoices'),inv);window.lastInv=inv;
  if(rec>0)await addDoc(collection(db,'cm_payments'),{...base(),clientName:v('i1'),amount:rec,note:'مع الفاتورة',status:'open'})};
 window.addPay=async()=>{const a=+v('p2');if(!v('p1')||!(a>0))throw Error('اكتب اسم العميل والمبلغ');
  await addDoc(collection(db,'cm_payments'),{...base(),clientName:v('p1'),amount:a,note:v('p3'),status:'open'})};
