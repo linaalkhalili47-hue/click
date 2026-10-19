@@ -63,7 +63,7 @@ const monthKey=(d=0)=>{const t=new Date();t.setMonth(t.getMonth()+d);return t.to
 const endDate=c=>{const d=new Date(c.start);d.setMonth(d.getMonth()+ +c.plan);return d};
 const daysLeft=c=>Math.ceil((endDate(c)-new Date())/864e5);
 
-const TABS={admin:[['week','الجدول'],['dash','الملخص'],['staff','الموظفين'],['log','كل الحركات']],employee:[['week','جدولي'],['new','تسجيل'],['mine','سجلي']]};
+const TABS={admin:[['week','الجدول'],['dash','الملخص'],['staff','الموظفين'],['subs','الاشتراكات'],['fin','الفواتير والمصاريف'],['log','كل الحركات']],employee:[['week','جدولي'],['new','تسجيل'],['mine','سجلي']]};
 const opn=(p,e)=>sum(p,'amount',x=>x.empId==e&&x.status=='open'),owe=(x,e)=>sum(x,'amount',y=>y.empId==e&&y.status=='pending');
 const netTxt=n=>n>0?`عليه يسلّم <b>${money(n)}</b>`:n<0?`له <b class="neg">${money(-n)}</b> مصاريف ترجعله`:'مسوّى';
 const load=(...w)=>Promise.all(['cm_invoices','cm_payments','cm_expenses'].map(c=>list(c,...w)));
@@ -79,18 +79,36 @@ async week(){
  const nav=`<div class="box" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="s" onclick="wkMove(-1)">› الأسبوع السابق</button><button class="s" onclick="wkMove(0)">هذا الأسبوع</button><button class="s" onclick="wkMove(1)">الأسبوع القادم ‹</button><span class="mu" style="margin-inline-start:auto">${day(days[0])} – ${day(days[6])}</span>${adm?`<select style="width:auto;margin:0" onchange="setF(this.value)"><option value="">كل الموظفين</option>${em.map(e=>`<option value="${e.id}"${e.id==fEmp?' selected':''}>${h(e.name)}</option>`).join('')}</select>`:''}</div>`;
  const form=adm?(em.length?`<div class="box br"><h3>نزلة جديدة</h3><div class="g">${F('t1','نوع الشغل (تصوير، مونتاج، منيو...)')}${F('t2','المحل / العميل')}${F('t3','الموظف','',opts(em))}${F('t4','التاريخ','date')}${F('t5','الوقت','time')}${F('t6','الموقع')}</div><button class="p" onclick="go(addTask)">حفظ النزلة</button></div>`:empty('أضف موظفاً أولاً من تبويب الموظفين.')):'';
  const sum2=adm?`<div class="box"><h3>ملخص الأسبوع</h3><div class="mu">${inW.length} نزلة · ${new Set(inW.map(t=>t.clientName)).size} محل/عميل</div>${em.map(e=>`<div class="row"><b>${h(e.name)}</b><span class="${cnt(e)?'':'neg'}">${cnt(e)?cnt(e)+' نزلة':'فاضي هالأسبوع'}</span></div>`).join('')}</div>`:'';
- return form+nav+sum2+days.map(d=>{const a=wt.filter(t=>t.date==d);return`<div class="box ${d==td?'br':''}"><h3>${day(d)}${d==td?' · اليوم':''}</h3>${a.map(t=>tcard(t,adm)).join('')||'<div class="mu">لا نزلات</div>'}</div>`}).join('')},
+ return form+nav+sum2+days.map(d=>{const a=wt.filter(t=>t.date==d);return`<div class="box ${d==td?'br':''}"><h3>${day(d)}${d==td?' · اليوم':''}${adm&&em.length?` <button class="s" onclick="pickDay('${d}')">+ نزلة</button>`:''}</h3>${a.map(t=>tcard(t,adm)).join('')||'<div class="mu">لا نزلات</div>'}</div>`}).join('')},
 async dash(){
- const[inv,pay,ex]=await load(),em=await list('cm_users',where('role','==','employee'));
- const m=monthKey(),p=monthKey(-1),rec=inM(pay,'amount',m),exp=inM(ex,'amount',m),n=rec-exp,pn=inM(pay,'amount',p)-inM(ex,'amount',p);
- return`<div class="k"><div class="box"><div class="mu">فواتير الشهر</div><div class="big">${money(inM(inv,'price',m))}</div></div><div class="box"><div class="mu">المستلم</div><div class="big">${money(rec)}</div></div><div class="box"><div class="mu">المصاريف</div><div class="big">${money(exp)}</div></div><div class="box"><div class="mu">${n<0?'خسارة':'الصافي'}</div><div class="big ${n<0?'neg':'pos'}">${money(n)}</div></div></div>
+ const[inv,pay,ex]=await load(),em=await list('cm_users',where('role','==','employee')),subs=await list('cm_subs');
+ const m=monthKey(),p=monthKey(-1),rec=inM(pay,'amount',m),sm=inM(subs,'price',m),exp=inM(ex,'amount',m),n=rec+sm-exp,pn=inM(pay,'amount',p)+inM(subs,'price',p)-inM(ex,'amount',p);
+ return`<div class="k"><div class="box"><div class="mu">فواتير الشهر</div><div class="big">${money(inM(inv,'price',m))}</div></div><div class="box"><div class="mu">المستلم</div><div class="big">${money(rec)}</div></div><div class="box"><div class="mu">دخل الاشتراكات</div><div class="big">${money(sm)}</div></div><div class="box"><div class="mu">المصاريف</div><div class="big">${money(exp)}</div></div><div class="box"><div class="mu">${n<0?'خسارة':'الصافي'}</div><div class="big ${n<0?'neg':'pos'}">${money(n)}</div></div></div>
  <div class="box"><div class="mu">الشهر الماضي: الصافي <span class="${pn<0?'neg':''}">${money(pn)}</span></div></div>
  <div class="box br"><h3>حساب الموظفين</h3>${em.map(e=>{const o=opn(pay,e.id),w=owe(ex,e.id);return`<div class="row"><div><b>${h(e.name)}</b><div class="mu">استلم من العملاء ${money(o)} · دفع من جيبه ${money(w)}</div><div>${netTxt(o-w)}</div></div>${o||w?`<button class="s" onclick="confirm('تسوية حساب ${h(e.name)}؟')&&go(()=>settle('${e.id}'))">تمت التسوية</button>`:''}</div>`}).join('')||empty('أضف موظفاً من تبويب الموظفين.')}</div>
  <div class="box"><h3>مصروف للإدارة</h3><div class="g">${F('x1','الوصف')}${F('x2','المبلغ','number')}</div><button class="p" onclick="go(()=>addExp(true))">حفظ</button></div>`},
 async staff(){
- const em=await list('cm_users',where('role','==','employee'));
+ const em=await list('cm_users',where('role','==','employee')),[inv,pay,ex]=await load(),ts=await list('cm_tasks'),d=wkRange(),m=monthKey();
  return`<div class="box br"><h3>موظف جديد</h3><div class="g">${F('e1','الاسم')}${F('e2','إيميل الدخول','email')}${F('e3','كلمة المرور (6 أحرف+)')}${F('e4','الأجر الشهري','number')}</div><button class="p" onclick="go(addStaff)">إنشاء الموظف</button></div>
- <div class="box">${em.map(e=>`<div class="row"><b>${h(e.name)}</b><span class="mu">الأجر ${money(e.wage)}</span></div>`).join('')||empty('لا يوجد موظفين بعد.')}</div>`},
+ <div class="box"><div class="mu">مجموع الأجور الشهرية (${em.length} موظف)</div><div class="big">${money(sum(em,'wage'))}</div></div>
+ <div class="box">${em.map(e=>{const wt=ts.filter(t=>t.empId==e.id&&t.date>=d[0]&&t.date<=d[6]).length,fv=inv.filter(x=>x.empId==e.id&&x.date.startsWith(m)).length,o=opn(pay,e.id),w=owe(ex,e.id);return`<div class="row"><div><b>${h(e.name)}</b><div class="mu">الأجر ${money(e.wage)} · ${wt} نزلة هالأسبوع · ${fv} فاتورة هالشهر</div><div class="mu">${netTxt(o-w)}</div></div></div>`}).join('')||empty('لا يوجد موظفين بعد.')}</div>`},
+async subs(){
+ const all=await list('cm_subs'),m=monthKey(),p=monthKey(-1),L={};
+ all.forEach(c=>{const k=(c.clientName+'|'+(c.phone||'')).toLowerCase();if(!L[k]||endDate(c)>endDate(L[k]))L[k]=c});
+ const cl=Object.values(L).sort((a,b)=>daysLeft(a)-daysLeft(b)),act=cl.filter(c=>daysLeft(c)>=0),old=cl.filter(c=>daysLeft(c)<0),soon=act.filter(c=>daysLeft(c)<=7);
+ return`<div class="k"><div class="box"><div class="mu">اشتراكات فعّالة</div><div class="big">${act.length}</div></div><div class="box"><div class="mu">تنتهي خلال 7 أيام</div><div class="big ${soon.length?'neg':''}">${soon.length}</div></div><div class="box"><div class="mu">دخل الاشتراكات هالشهر</div><div class="big pos">${money(inM(all,'price',m))}</div></div><div class="box"><div class="mu">الشهر الماضي</div><div class="big">${money(inM(all,'price',p))}</div></div></div>
+ <div class="box br"><h3>اشتراك جديد</h3><div class="g">${F('s1','اسم العميل')}${F('s2','رقم الهاتف','tel')}<label>نوع الباقة<select id="s5">${PK.map(x=>`<option>${x}</option>`).join('')}</select></label><label>المدة<select id="s3" onchange="document.getElementById('s4').value=this.selectedOptions[0].dataset.p">${PLANS.map(x=>`<option value="${x[0]}" data-p="${x[2]}">${x[1]}</option>`).join('')}</select></label><label>السعر<input id="s4" type="number" value="${PLANS[0][2]}"></label>${F('s6','تاريخ البدء','date')}</div><button class="p" onclick="go(addSub)">حفظ الاشتراك</button></div>
+ <div class="box"><h3>الاشتراكات الفعّالة</h3>${act.map(sRow).join('')||empty('لا اشتراكات فعّالة.')}</div>
+ ${old.length?`<div class="box"><h3>منتهية</h3>${old.map(sRow).join('')}</div>`:''}`},
+async fin(){
+ const[inv,pay,ex]=await load(),m=monthKey(),mx=ex.filter(x=>x.date.startsWith(m)),by={},srt=a=>[...a].sort((x,y)=>y.date.localeCompare(x.date));
+ mx.forEach(x=>{const c=x.cat||'أخرى';by[c]=(by[c]||0)+ +x.amount});
+ const dl=(c,id)=>`<button class="s d" onclick="confirm('حذف؟')&&go(()=>del('${c}','${id}'))">حذف</button>`;
+ return`<div class="k"><div class="box"><div class="mu">فواتير الشهر</div><div class="big">${money(inM(inv,'price',m))}</div></div><div class="box"><div class="mu">مصاريف الشهر</div><div class="big neg">${money(sum(mx,'amount'))}</div></div></div>
+ <div class="box br"><h3>مصروف شركة جديد</h3><div class="g">${F('c1','الوصف')}${F('c2','المبلغ','number')}${F('c3','النوع','',CATS.map(c=>[c,c]))}${F('c4','التاريخ','date')}</div><button class="p" onclick="go(addCo)">حفظ المصروف</button></div>
+ <div class="box"><h3>المصاريف حسب النوع (هالشهر)</h3>${Object.entries(by).map(([c,a])=>`<div class="row"><span>${h(c)}</span><b>${money(a)}</b></div>`).join('')||empty('لا مصاريف هالشهر.')}</div>
+ <div class="box"><h3>مصاريف الشركة</h3>${srt(ex).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.desc)}</b><div class="mu">${x.date} · ${h(x.cat||'أخرى')} · ${h(x.empName)}${x.status=='pending'?' · بانتظار الرجوع':''}</div></div><div>${money(x.amount)} ${dl('expenses',x.id)}</div></div>`).join('')||empty('لا مصاريف بعد.')}</div>
+ <div class="box"><h3>الفواتير</h3>${srt(inv).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.clientName)}</b><div class="mu">${x.date} · ${h(x.empName)}${x.service?' · '+h(x.service):''}</div></div><div>${money(x.price)} ${dl('invoices',x.id)}</div></div>`).join('')||empty('لا فواتير بعد.')}</div>`},
 async log(){const[i,p,x]=await load();return`<div class="box">${entryRows(i,p,x,true)}</div>`},
 async new(){return`<div class="box br"><h3>فاتورة جديدة</h3><div class="g">${F('i1','اسم العميل')}${F('i2','رقم الهاتف','tel')}${F('i3','الخدمة / الشغل اللي عملته')}${F('i4','السعر','number')}${F('i5','المبلغ اللي استلمته الآن (اختياري)','number')}</div><button class="p" onclick="go(addInv)">حفظ الفاتورة</button></div>
  <div class="box"><h3>استلمت دفعة</h3><div class="g">${F('p1','اسم العميل')}${F('p2','المبلغ','number')}${F('p3','ملاحظة (اختياري)')}</div><button class="p" onclick="go(addPay)">تسجيل الاستلام</button></div>
@@ -100,6 +118,17 @@ async mine(){
  return`<div class="box br"><div class="mu">حسابك الحالي</div><div class="big">${netTxt(o-w)}</div><div class="mu">استلمت ${money(o)} · دفعت من جيبك ${money(w)}</div></div><div class="box"><h3>آخر حركاتك</h3>${entryRows(i,p,x,false)}</div>`}
 };
 
+const PLANS=[[1,'شهر',150],[3,'3 شهور',400],[6,'6 شهور',700],[12,'سنة',1300]],PK=['الأساسية','بريميوم'];
+const planName=n=>(PLANS.find(x=>x[0]==n)||[0,n+' شهر'])[1];
+const sRow=c=>{const l=daysLeft(c),b=l<0?`<span class="neg">انتهى منذ ${-l} يوم</span>`:l<=7?`<span class="neg">باقي ${l} يوم</span>`:`<span class="pos">باقي ${l} يوم</span>`;
+ return`<div class="row"><div><b>${h(c.clientName)}</b> · ${h(c.pkg)} · ${planName(c.plan)}<div class="mu">${c.start} ← ${endDate(c).toISOString().slice(0,10)}${c.phone?' · '+h(c.phone):''}</div><div>${b}</div></div><div>${money(c.price)} <button class="s" onclick="confirm('تجديد الاشتراك؟')&&go(()=>renew('${c.id}'))">تجديد</button> <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('subs','${c.id}'))">حذف</button></div></div>`};
+window.addSub=async()=>{const price=+v('s4');if(!v('s1')||!(price>0)||!v('s6'))throw Error('اكتب اسم العميل والسعر وتاريخ البدء');
+ await addDoc(collection(db,'cm_subs'),{clientName:v('s1'),phone:v('s2'),pkg:v('s5'),plan:+v('s3'),price,start:v('s6'),date:v('s6'),empId:me.uid,empName:me.name})};
+window.renew=async id=>{const c=(await getDoc(doc(db,'cm_subs',id))).data(),e=endDate(c),st=e>new Date()?e.toISOString().slice(0,10):today();
+ await addDoc(collection(db,'cm_subs'),{...c,start:st,date:today()})};
+window.addCo=async()=>{const a=+v('c2');if(!v('c1')||!(a>0))throw Error('اكتب الوصف والمبلغ');
+ await addDoc(collection(db,'cm_expenses'),{date:v('c4')||today(),empId:'',empName:'الإدارة',desc:v('c1'),amount:a,cat:v('c3'),status:'paid'})};
+window.pickDay=d=>{document.getElementById('t4').value=d;scrollTo({top:0,behavior:'smooth'});document.getElementById('t1').focus()};
 let wk=0,fEmp='';
 const wkRange=()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-d.getDay()+wk*7);return[...Array(7)].map((_,i)=>{const x=new Date(d);x.setDate(d.getDate()+i);return x.toISOString().slice(0,10)})};
 const tcard=(t,adm)=>`<div class="row"><div><b>${h(t.title)}</b> · ${h(t.clientName)}<div class="mu">${h(t.time)||'بدون وقت'} · ${h(t.place)||'بدون موقع'}${adm?' · '+h(t.empName):''}${t.onSite?' · وصل '+h(t.onSite):''}</div></div><div><select onchange="go(()=>setSt('${t.id}',this.value))">${ST.map(s=>`<option${s==t.status?' selected':''}>${s}</option>`).join('')}</select>${!adm&&!t.onSite?` <button class="s" onclick="go(()=>onSite('${t.id}'))">أنا بالموقع</button>`:''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('tasks','${t.id}'))">حذف</button>`:''}</div></div>`;
