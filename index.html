@@ -70,7 +70,7 @@ const opn=(p,e)=>sum(p,'amount',x=>x.empId==e&&x.status=='open'),owe=(x,e)=>sum(
 const netTxt=n=>n>0?`عليه يسلّم <b>${money(n)}</b>`:n<0?`له <b class="neg">${money(-n)}</b> مصاريف ترجعله`:'مسوّى';
 const load=(...w)=>Promise.all(['cm_invoices','cm_payments','cm_expenses'].map(c=>list(c,...w)));
 const inM=(a,k,p)=>sum(a,k,x=>x.date.startsWith(p));
-const entryRows=(inv,pay,ex,adm)=>[...inv.map(x=>({c:'invoices',id:x.id,d:x.date,t:'فاتورة · '+x.clientName,s:[x.service,x.phone].filter(Boolean).join(' · '),a:x.price,e:x.empName,w:x.phone?reg(x):''})),...pay.map(x=>({c:'payments',id:x.id,d:x.date,t:'استلام · '+x.clientName,s:x.note||'',a:x.amount,e:x.empName})),...ex.map(x=>({c:'expenses',id:x.id,d:x.date,t:'مصروف · '+x.desc,s:x.status=='pending'?'بانتظار الرجوع':'',a:x.amount,e:x.empName}))].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,150).map(r=>`<div class="row"><div><b>${h(r.t)}</b><div class="mu">${r.d} · ${h(r.e)}${r.s?' · '+h(r.s):''}</div></div><div>${money(r.a)}${r.w?` <button class="s wa" onclick="sendInv('${r.w}')">واتساب</button>`:''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('${r.c}','${r.id}'))">حذف</button>`:''}</div></div>`).join('')||empty('لا توجد حركات بعد.');
+const entryRows=(inv,pay,ex,adm)=>[...inv.map(x=>({c:'invoices',id:x.id,d:x.date,t:'فاتورة · '+x.clientName,s:[x.service,x.phone].filter(Boolean).join(' · '),a:x.price,e:x.empName,w:x.phone?reg(x):''})),...pay.map(x=>({c:'payments',id:x.id,d:x.date,t:'استلام · '+x.clientName,s:x.note||'',a:x.amount,e:x.empName})),...ex.map(x=>({c:'expenses',id:x.id,d:x.date,t:'مصروف · '+x.desc,s:x.status=='pending'?'بانتظار الرجوع':'',a:x.amount,e:x.empName}))].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,150).map(r=>`<div class="row"><div><b>${h(r.t)}</b><div class="mu">${r.d} · ${h(r.e)}${r.s?' · '+h(r.s):''}</div></div><div>${money(r.a)}${r.w?` <button class="s wa" onclick="sendInv('${r.w}')">صورة</button> <button class="s wa" onclick="chatInv('${r.w}')">محادثة</button>`:''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('${r.c}','${r.id}'))">حذف</button>`:''}</div></div>`).join('')||empty('لا توجد حركات بعد.');
 
 const T={
 async week(){
@@ -110,7 +110,7 @@ async fin(){
  <div class="box br"><h3>مصروف شركة جديد</h3><div class="g">${F('c1','الوصف')}${F('c2','المبلغ','number')}${F('c3','النوع','',CATS.map(c=>[c,c]))}${F('c4','التاريخ','date')}</div><button class="p" onclick="go(addCo)">حفظ المصروف</button></div>
  <div class="box"><h3>المصاريف حسب النوع (هالشهر)</h3>${Object.entries(by).map(([c,a])=>`<div class="row"><span>${h(c)}</span><b>${money(a)}</b></div>`).join('')||empty('لا مصاريف هالشهر.')}</div>
  <div class="box"><h3>مصاريف الشركة</h3>${srt(ex).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.desc)}</b><div class="mu">${x.date} · ${h(x.cat||'أخرى')} · ${h(x.empName)}${x.status=='pending'?' · بانتظار الرجوع':''}</div></div><div>${money(x.amount)} ${dl('expenses',x.id)}</div></div>`).join('')||empty('لا مصاريف بعد.')}</div>
- <div class="box"><h3>الفواتير</h3>${srt(inv).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.clientName)}</b><div class="mu">${x.date} · ${h(x.empName)}${x.service?' · '+h(x.service):''}</div></div><div>${money(x.price)} ${x.phone?`<button class="s wa" onclick="sendInv('${reg(x)}')">واتساب</button>`:''} ${dl('invoices',x.id)}</div></div>`).join('')||empty('لا فواتير بعد.')}</div>`},
+ <div class="box"><h3>الفواتير</h3>${srt(inv).slice(0,50).map(x=>`<div class="row"><div><b>${h(x.clientName)}</b><div class="mu">${x.date} · ${h(x.empName)}${x.service?' · '+h(x.service):''}</div></div><div>${money(x.price)} ${x.phone?`<button class="s wa" onclick="sendInv('${reg(x)}')">صورة</button> <button class="s wa" onclick="chatInv('${reg(x)}')">محادثة</button>`:''} ${dl('invoices',x.id)}</div></div>`).join('')||empty('لا فواتير بعد.')}</div>`},
 async log(){const[i,p,x]=await load();return`<div class="box">${entryRows(i,p,x,true)}</div>`},
 async clients(){
  const cl=(await list('cm_clients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
@@ -119,7 +119,7 @@ async clients(){
  <div class="box"><h3>قاعدة الزباين (${cl.length})</h3>${cl.map(c=>`<div class="row"><div><b>${h(c.name)}</b><div class="mu">${h(c.phone)||'بدون رقم'}</div></div><div><select onchange="go(()=>setCType('${c.id}',this.value))">${CT.map(x=>`<option${x==c.type?' selected':''}>${x}</option>`).join('')}</select> <button class="s d" onclick="confirm('حذف الزبون؟')&&go(()=>del('clients','${c.id}'))">حذف</button></div></div>`).join('')||empty('لا يوجد زباين بعد.')}</div>`},
 async new(){
  const cl=(await list('cm_clients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));window.CL=Object.fromEntries(cl.map(c=>[c.id,c]));
- const li=window.lastInv,sent=li?`<div class="box" style="border-color:var(--gn)"><div class="mu">تم حفظ فاتورة ${h(li.clientName)}</div>${li.phone?`<button class="s wa" onclick="sendInv('${reg(li)}')">إرسال الفاتورة عبر واتساب</button>`:'<div class="mu">ما في رقم هاتف للزبون.</div>'} <button class="s" onclick="window.lastInv=null;show('new')">إغلاق</button></div>`:'';
+ const li=window.lastInv,sent=li?`<div class="box" style="border-color:var(--gn)"><div class="mu">تم حفظ فاتورة ${h(li.clientName)}</div>${li.phone?`<button class="s wa" onclick="chatInv('${reg(li)}')">فتح محادثة الزبون</button> <button class="s wa" onclick="sendInv('${reg(li)}')">إرسال كصورة</button>`:'<div class="mu">ما في رقم هاتف للزبون.</div>'} <button class="s" onclick="window.lastInv=null;show('new')">إغلاق</button></div>`:'';
  return sent+`<div class="box br"><h3>فاتورة جديدة</h3><div class="g"><label>الزبون<select id="i0" onchange="pickClient(this.value)"><option value="">— زبون غير مسجّل (اكتب بياناته) —</option>${cl.map(c=>`<option value="${c.id}">${h(c.name)} · ${h(c.type)}</option>`).join('')}</select></label>${F('i1','اسم العميل')}${F('i2','رقم الهاتف','tel')}${F('i3','الخدمة / الشغل اللي عملته')}${F('i4','السعر','number')}${F('i5','المبلغ اللي استلمته الآن (اختياري)','number')}</div><button class="p" onclick="go(addInv)">حفظ الفاتورة</button></div>
  <div class="box"><h3>استلمت دفعة</h3><div class="g">${F('p1','اسم العميل')}${F('p2','المبلغ','number')}${F('p3','ملاحظة (اختياري)')}</div><button class="p" onclick="go(addPay)">تسجيل الاستلام</button></div>
  <div class="box"><h3>مصروف دفعته من جيبي</h3><div class="g">${F('x1','الوصف')}${F('x2','المبلغ','number')}</div><button class="p" onclick="go(()=>addExp(false))">إرسال المصروف</button></div>`},
@@ -167,6 +167,7 @@ const invImg=async x=>{
  T('المتبقي',W-95,708,CY,600,28);T(money(price-paid),95,710,CY,600,34,'left');
  T('شكراً لتعاملكم مع Click Media',W/2,800,CY,400,22,'center');
  return c};
+window.chatInv=k=>{const x=IV[k];if(x)window.open(waLink(x),'_blank')};
 window.sendInv=async k=>{const x=IV[k];if(!x)return;
  try{const c=await invImg(x);const blob=await new Promise(r=>c.toBlob(r,'image/png'));
   const f=new File([blob],'فاتورة-'+x.clientName+'.png',{type:'image/png'});
