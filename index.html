@@ -131,7 +131,7 @@ window.addCo=async()=>{const a=+v('c2');if(!v('c1')||!(a>0))throw Error('اكت�
 window.pickDay=d=>{document.getElementById('t4').value=d;scrollTo({top:0,behavior:'smooth'});document.getElementById('t1').focus()};
 let wk=0,fEmp='';
 const wkRange=()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-d.getDay()+wk*7);return[...Array(7)].map((_,i)=>{const x=new Date(d);x.setDate(d.getDate()+i);return x.toISOString().slice(0,10)})};
-const addSel=(t,em,all)=>{const av=em.filter(e=>!all.some(x=>x.date==t.date&&x.title==t.title&&x.clientName==t.clientName&&x.empId==e.id));return av.length?` <select onchange="this.value&&go(()=>addTo('${t.id}',this.value,this.selectedOptions[0].text))"><option value="">+ أضف موظف</option>${av.map(e=>`<option value="${e.id}">${h(e.name)}</option>`).join('')}</select>`:''};
+const addSel=(t,em,all)=>{const av=em.filter(e=>!all.some(x=>x.date==t.date&&x.title==t.title&&x.clientName==t.clientName&&x.empId==e.id));return av.length?` <select onchange="this.value&&go(()=>this.value=='__all'?addToAll('${t.id}'):addTo('${t.id}',this.value,this.selectedOptions[0].text))"><option value="">+ أضف موظف</option>${av.length>1?'<option value="__all">★ الكل</option>':''}${av.map(e=>`<option value="${e.id}">${h(e.name)}</option>`).join('')}</select>`:''};
 const tcard=(t,adm,em,all)=>`<div class="row"><div><b>${h(t.title)}</b> · ${h(t.clientName)}<div class="mu">${h(t.time)||'بدون وقت'} · ${h(t.place)||'بدون موقع'}${adm?' · '+h(t.empName):''}${t.team&&t.team.length>1?' · مع: '+h(t.team.filter(n=>n!=t.empName).join('، ')):''}${t.onSite?' · وصل '+h(t.onSite):''}</div></div><div><select onchange="go(()=>setSt('${t.id}',this.value))">${ST.map(s=>`<option${s==t.status?' selected':''}>${s}</option>`).join('')}</select>${!adm&&!t.onSite?` <button class="s" onclick="go(()=>onSite('${t.id}'))">أنا بالموقع</button>`:''}${adm&&em?addSel(t,em,all):''}${adm?` <button class="s d" onclick="confirm('حذف؟')&&go(()=>del('tasks','${t.id}'))">حذف</button>`:''}</div></div>`;
 window.wkMove=n=>{wk=n?wk+n:0;show('week')};
 window.setF=x=>{fEmp=x;show('week')};
@@ -142,6 +142,14 @@ window.addTo=async(id,eid,en)=>{const t=(await getDoc(doc(db,'cm_tasks',id))).da
  const team=[...new Set([...sibs.map(x=>x.empName),en])],b=writeBatch(db);
  sibs.forEach(x=>b.update(doc(db,'cm_tasks',x.id),{team,grp:g}));
  b.set(doc(collection(db,'cm_tasks')),{title:t.title,clientName:t.clientName,empId:eid,empName:en,date:t.date,time:t.time||'',place:t.place||'',status:ST[0],team,grp:g});
+ await b.commit()};
+window.addToAll=async(id)=>{const t=(await getDoc(doc(db,'cm_tasks',id))).data(),g=t.grp||Date.now().toString(36);
+ const sibs=(await list('cm_tasks',where('date','==',t.date))).filter(x=>x.title==t.title&&x.clientName==t.clientName&&(t.grp?x.grp==t.grp:x.id==id));
+ const em=await list('cm_users',where('role','==','employee')),have=new Set(sibs.map(x=>x.empId)),add=em.filter(e=>!have.has(e.id));
+ if(!add.length)throw Error('كل الموظفين مضافين على هالنزلة');
+ const team=[...new Set([...sibs.map(x=>x.empName),...add.map(e=>e.name)])],b=writeBatch(db);
+ sibs.forEach(x=>b.update(doc(db,'cm_tasks',x.id),{team,grp:g}));
+ add.forEach(e=>b.set(doc(collection(db,'cm_tasks')),{title:t.title,clientName:t.clientName,empId:e.id,empName:e.name,date:t.date,time:t.time||'',place:t.place||'',status:ST[0],team,grp:g}));
  await b.commit()};
 window.setSt=(id,s)=>updateDoc(doc(db,'cm_tasks',id),{status:s});
 window.onSite=id=>updateDoc(doc(db,'cm_tasks',id),{onSite:new Date().toLocaleTimeString('ar-JO',{hour:'2-digit',minute:'2-digit'})});
